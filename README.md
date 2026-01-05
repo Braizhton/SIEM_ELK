@@ -446,9 +446,6 @@ path.config: /etc/logstash/conf.d
 
 # Chemin des logs
 path.logs: /var/log/logstash
-
-# Configuration Elasticsearch
-xpack.monitoring.elasticsearch.hosts: ["http://localhost:9200"]
 ```
 
 #### Étape 4 : Création d'un pipeline de test
