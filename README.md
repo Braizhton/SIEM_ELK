@@ -123,7 +123,7 @@ free -h
 df -h
 ```
 
-**Vérification** : Notez la quantité de RAM disponible. Avec 1 Go de RAM, nous devrons optimiser Elasticsearch.
+**Vérification** : Notez la quantité de RAM disponible. Avec 2 Go de RAM, nous devrons optimiser Elasticsearch pour laisser de la mémoire aux autres services.
 
 #### Étape 3 : Mise à jour du système
 
@@ -178,24 +178,35 @@ Mettez à jour les dépôts et installez Elasticsearch :
 sudo apt-get update && sudo apt-get install elasticsearch
 ```
 
-#### Étape 5 : Configuration d'Elasticsearch pour 1 Go de RAM
+#### Étape 5 : Configuration d'Elasticsearch pour 2 Go de RAM
 
-**IMPORTANT** : Avec seulement 1 Go de RAM, nous devons limiter la mémoire heap d'Elasticsearch.
+**IMPORTANT** : Avec 2 Go de RAM, nous devons limiter la mémoire heap d'Elasticsearch pour laisser de la mémoire aux autres services.
 
-créez le fichier de configuration de la mémoir heap pour la JVM :
+Créez le fichier de configuration de la mémoire heap pour la JVM :
 
 ```bash
-sudo nano /etc/elasticsearch/jvm.options.d/heapsizemem.conf
+sudo nano /etc/elasticsearch/jvm.options.d/heapsizemem.options
 ```
+
+**Note** : L'extension du fichier doit être `.options` (pas `.conf`) pour être prise en compte par Elasticsearch.
 
 Insérez les lignes suivantes :
-```
-#(optimisé pour 2 Go RAM)
--Xms1G
--Xmx1G
+
+```properties
+# Optimisé pour 2 Go RAM (heap limité à 1 Go)
+-Xms1g
+-Xmx1g
 ```
 
-**Explication** : Nous limitons le heap à 1 Go pour laisser de la mémoire au système et aux autres services.
+**Explication** : 
+- Nous limitons le **heap** à 1 Go pour laisser suffisamment de mémoire au système et aux autres services (Kibana, Logstash, etc.).
+- Avec 2 Go de RAM total, un heap de 1 Go est un bon compromis.
+- **Important** : La mémoire totale utilisée par Elasticsearch sera supérieure au heap (environ 1.4-1.5 Go) car elle inclut :
+  - Le heap JVM (1 Go dans notre cas)
+  - La mémoire native (off-heap)
+  - Les bibliothèques partagées
+  - Les processus auxiliaires (comme le controller ML)
+  - Les buffers système
 
 #### Étape 6 : Configuration réseau d'Elasticsearch
 
@@ -205,24 +216,50 @@ Insérez les lignes suivantes :
 sudo nano /etc/elasticsearch/elasticsearch.yml
 ```
 
-Modifiez les paramètres suivants :
+**Configuration pour Elasticsearch 9.2** :
+
+La configuration par défaut d'Elasticsearch 9.2 inclut déjà certaines options. Vous devez vérifier et modifier les paramètres suivants :
 
 ```yaml
-# Réseau et HTTP
-network.host: 0.0.0.0
+# Réseau et HTTP (déjà présent dans la config par défaut avec http.host)
+# Vérifiez que ces lignes sont présentes :
+http.host: 0.0.0.0
 http.port: 9200
 
 # Nom du cluster (optionnel, pour identification)
 cluster.name: siem-cluster
 
-# Nom du nœud (optionnel)
 node.name: siem-node-1
 
 # Désactiver la sécurité pour simplifier (**à ne pas faire en production**)
 xpack.security.enabled: false
+
+# Désactiver SSL/HTTPS pour simplifier (nécessaire car la sécurité est désactivée)
+# Enable security features
+xpack.security.enabled: false
+
+xpack.security.enrollment.enabled: false
+
+# Enable encryption for HTTP API client connections, such as Kibana, Logstash, and Agents
+xpack.security.http.ssl:
+  enabled: false
+  keystore.path: certs/http.p12
+
+# Enable encryption and mutual authentication between cluster nodes
+xpack.security.transport.ssl:
+  enabled: false
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+  
+cluster.initial_master_nodes: ["siem-node-1"]
+
 ```
 
-**Note** : En production, vous devriez activer la sécurité (xpack.security.enabled: true).
+**Notes importantes** :
+- En production, vous devriez activer la sécurité et utiliser SSL/TLS.
+- Dans Elasticsearch 9.2, utilisez `http.host` au lieu de `network.host`.
+- Remplacez `"siem-node-1"` dans `cluster.initial_master_nodes` par la valeur de `node.name` que vous avez définie (ou gardez le nom de votre machine si vous n'avez pas changé `node.name`).
 
 #### Étape 7 : Démarrage d'Elasticsearch
 
@@ -254,6 +291,12 @@ curl http://localhost:9200
 
 Vous devriez voir une réponse JSON avec les informations du cluster.
 
+**Vérification** : Après redémarrage, vérifiez que le heap est bien limité avec :
+```bash
+curl http://localhost:9200/_nodes/jvm?pretty
+```
+Cherchez les valeurs `heap_used` et `heap_max` dans la réponse.
+
 Testez également depuis votre PC Windows (remplacez `IP_VM` par l'IP de votre VM) :
 
 ```bash
@@ -273,7 +316,7 @@ curl http://IP_VM:9200
 3. Ajustez les paramètres `-Xms` et `-Xmx` dans `/etc/elasticsearch/jvm.options`
 4. Redémarrez Elasticsearch : `sudo systemctl restart elasticsearch`
 
-**Indice** : Si vous avez moins de 512 Mo de RAM disponible, réduisez encore le heap (ex: 128m).
+**Indice** : Avec 2 Go de RAM, un heap de 1 Go devrait fonctionner. Si vous avez des problèmes, vous pouvez réduire à 512m, mais cela peut impacter les performances.
 
 ---
 
@@ -326,7 +369,15 @@ Vérifiez le statut :
 sudo systemctl status kibana
 ```
 
-**Note** : Kibana peut prendre 1-2 minutes pour démarrer complètement.
+**Note importante** : 
+- Kibana peut prendre **1-2 minutes** pour démarrer complètement.
+- **Lors du premier démarrage**, Kibana effectue des migrations d'objets sauvegardés qui peuvent prendre **3-5 minutes** supplémentaires.
+- Pendant ce temps, la page web peut rester en chargement. C'est **normal**.
+- Surveillez les logs pour voir l'état des migrations :
+  ```bash
+  sudo journalctl -u kibana -f
+  ```
+  Vous devriez voir "Starting saved objects migrations" puis "Migration completed" ou similaire.
 
 #### Étape 4 : Accès à Kibana
 
@@ -831,7 +882,7 @@ sudo systemctl enable packetbeat
 
 Vérifiez dans Kibana avec l'index pattern `packetbeat-*`.
 
-**Note** : Packetbeat peut être gourmand en ressources. Sur une VM avec 1 Go de RAM, utilisez-le avec précaution.
+**Note** : Packetbeat peut être gourmand en ressources. Sur une VM avec 2 Go de RAM, utilisez-le avec précaution.
 
 ---
 
@@ -1160,15 +1211,43 @@ cd "C:\Program Files\Winlogbeat"
 
 ### 6.2 Fichiers de configuration de référence
 
-#### Elasticsearch - `/etc/elasticsearch/elasticsearch.yml`
+#### Elasticsearch - `/etc/elasticsearch/elasticsearch.yml` (version 9.2)
 
 ```yaml
+# Configuration réseau (Elasticsearch 9.2 utilise http.host au lieu de network.host)
+http.host: 0.0.0.0
+http.port: 9200
+
+# Configuration du cluster
 cluster.name: siem-cluster
 node.name: siem-node-1
-network.host: 0.0.0.0
-http.port: 9200
+cluster.initial_master_nodes: ["siem-node-1"]
+
+# Désactiver la sécurité pour simplifier (⚠️ à ne pas faire en production)
 xpack.security.enabled: false
+
+# Désactiver SSL/HTTPS (nécessaire quand la sécurité est désactivée)
+# Ces lignes désactivent les certificats SSL générés automatiquement
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false
 ```
+
+**Note** : 
+- Remplacez `"siem-node-1"` dans `cluster.initial_master_nodes` par la valeur de `node.name` que vous utilisez (ou le nom de votre machine par défaut comme `"tp-prof"`).
+- Si vous gardez le nom de machine par défaut, utilisez ce nom dans `cluster.initial_master_nodes`.
+
+#### Elasticsearch - Configuration JVM - `/etc/elasticsearch/jvm.options.d/heapsizemem.options`
+
+```properties
+# Optimisé pour 2 Go RAM
+-Xms1g
+-Xmx1g
+```
+
+**Note** : 
+- Ce fichier doit être créé dans le répertoire `jvm.options.d/` pour surcharger les paramètres par défaut.
+- **Important** : L'extension du fichier doit être `.options` (pas `.conf`) pour être prise en compte par Elasticsearch.
+- La mémoire totale utilisée par Elasticsearch sera supérieure au heap (environ 1.4-1.5 Go avec un heap de 1 Go) car elle inclut la mémoire native et les processus auxiliaires.
 
 #### Kibana - `/etc/kibana/kibana.yml`
 
@@ -1229,9 +1308,72 @@ output.elasticsearch:
 
 **Solutions** :
 1. Vérifiez qu'Elasticsearch fonctionne : `curl http://localhost:9200`
-2. Vérifiez la configuration dans `kibana.yml`
+2. Vérifiez la configuration dans `kibana.yml` :
+   ```bash
+   sudo grep "^elasticsearch.hosts" /etc/kibana/kibana.yml
+   ```
+   La ligne doit être décommentée (sans `#` au début)
 3. Vérifiez les logs : `sudo journalctl -u kibana -n 50`
 4. Vérifiez le pare-feu
+
+#### Problème : Page Kibana reste en chargement (loading)
+
+**Symptômes** : La page Kibana s'affiche mais reste bloquée sur "Loading..." ou "Kibana is starting", même après plusieurs minutes.
+
+**Causes possibles** :
+1. Les migrations d'objets sauvegardés sont en cours (normal au premier démarrage)
+2. Kibana attend que les migrations se terminent avant d'afficher l'interface
+3. Problème de performance (manque de mémoire)
+
+**Solutions** :
+
+1. **Vérifiez l'état des migrations dans les logs** :
+   ```bash
+   sudo journalctl -u kibana -f | grep -i "migration\|savedobjects"
+   ```
+   Vous devriez voir des messages comme "Starting saved objects migrations" puis "Migration completed" ou "Migration successful".
+
+2. **Attendez 3-5 minutes** lors du premier démarrage. Les migrations peuvent prendre du temps, surtout avec peu de RAM.
+
+3. **Vérifiez que Kibana est bien connecté à Elasticsearch** :
+   ```bash
+   sudo journalctl -u kibana | grep -i "connected to elasticsearch"
+   ```
+   Vous devriez voir "Successfully connected to Elasticsearch".
+
+4. **Vérifiez l'état du service Kibana** :
+   ```bash
+   sudo systemctl status kibana
+   ```
+   Le service doit être "active (running)".
+
+5. **Vérifiez les logs complets pour des erreurs** :
+   ```bash
+   sudo journalctl -u kibana -n 200 --no-pager
+   ```
+   Cherchez les erreurs (ERROR, FATAL) ou les warnings importants.
+
+6. **Si les migrations semblent bloquées** (plus de 10 minutes), vous pouvez essayer de les réinitialiser (⚠️ **ATTENTION** : cela supprimera toutes les configurations Kibana) :
+   ```bash
+   # Arrêtez Kibana
+   sudo systemctl stop kibana
+   
+   # Supprimez les index Kibana (perte de toutes les configurations, visualisations, dashboards)
+   curl -X DELETE "http://localhost:9200/.kibana*"
+   
+   # Redémarrez Kibana
+   sudo systemctl start kibana
+   
+   # Attendez 3-5 minutes pour les nouvelles migrations
+   ```
+
+7. **Vérifiez la mémoire disponible** :
+   ```bash
+   free -h
+   ```
+   Si la mémoire est saturée, les migrations peuvent être très lentes. Considérez réduire le heap d'Elasticsearch.
+
+**Note** : Si vous voyez dans les logs "Starting saved objects migrations" mais pas de message de fin, c'est normal - les migrations peuvent prendre plusieurs minutes. Patientez et surveillez les logs.
 
 #### Problème : Les logs n'apparaissent pas dans Kibana
 
@@ -1253,15 +1395,40 @@ output.elasticsearch:
 3. Vérifiez la configuration : `.\winlogbeat.exe test config`
 4. Vérifiez la connectivité vers Elasticsearch : `Test-NetConnection -ComputerName IP_VM -Port 9200`
 
-#### Problème : Performance lente avec 1 Go de RAM
+#### Problème : Elasticsearch utilise plus de mémoire que le heap configuré
+
+**Symptôme** : `systemctl status elasticsearch` montre que Elasticsearch utilise plus de mémoire (ex: 1.4G) que le heap configuré (ex: 1G dans `heapsizemem.options`).
+
+**Explication** : C'est **normal** ! La mémoire totale d'Elasticsearch inclut :
+- Le **heap JVM** (configuré avec `-Xmx1g` dans votre fichier)
+- La **mémoire native (off-heap)** pour les buffers, caches, mappings, etc. (~200-400 Mo)
+- Les **bibliothèques partagées** chargées en mémoire
+- Les **processus auxiliaires** (comme le controller ML qu'on voit dans le status)
+- Les **buffers système** du kernel
+
+**Vérification du heap réel** : Pour voir le heap JVM réellement utilisé (pas la mémoire totale) :
+```bash
+curl http://localhost:9200/_nodes/jvm?pretty | grep -A 10 "heap"
+```
+
+Vous devriez voir `heap_max_in_bytes` proche de 1G (1073741824 bytes) et `heap_used_in_bytes` inférieur.
+
+**Si la mémoire totale est vraiment trop élevée** :
+1. Vérifiez que le fichier s'appelle bien `heapsizemem.options` (pas `.conf`)
+2. Redémarrez Elasticsearch : `sudo systemctl restart elasticsearch`
+3. Réduisez le heap à 512m si nécessaire
+4. Désactivez ML (Machine Learning) si non utilisé : `xpack.ml.enabled: false` dans `elasticsearch.yml`
+
+#### Problème : Performance lente avec 2 Go de RAM
 
 **Symptômes** : Système lent, services qui plantent
 
 **Solutions** :
-1. Réduisez le heap d'Elasticsearch (256m ou moins)
+1. Réduisez le heap d'Elasticsearch (512m ou 1g selon les autres services)
 2. Limitez le nombre d'indices
-3. Désactivez les fonctionnalités non essentielles
+3. Désactivez les fonctionnalités non essentielles (ML, etc.)
 4. Utilisez un swap si nécessaire (mais cela ralentit)
+5. Vérifiez la consommation mémoire des autres services (Kibana, Logstash)
 
 ### 6.4 Ressources supplémentaires
 
