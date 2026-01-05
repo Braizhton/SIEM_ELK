@@ -139,7 +139,7 @@ sudo apt upgrade -y
 Installez les outils nécessaires :
 
 ```bash
-sudo apt install -y curl wget nano git
+sudo apt install -y curl wget nano git gpg
 ```
 
 ---
