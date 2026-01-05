@@ -151,7 +151,7 @@ sudo apt install -y curl wget nano vim git
 Ajoutez la clé GPG pour authentifier les paquets Elastic :
 
 ```bash
-wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
 ```
 
 #### Étape 2 : Installation d'apt-transport-https
@@ -164,19 +164,17 @@ sudo apt install -y apt-transport-https
 
 #### Étape 3 : Ajout du dépôt Elastic
 
-Ajoutez le dépôt Elastic (nous utiliserons la version 8.x) :
+Ajoutez le dépôt Elastic (nous utiliserons la version 9.x) :
 
 ```bash
-echo "deb https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
-```
+echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-9.x.list```
 
 #### Étape 4 : Mise à jour et installation
 
 Mettez à jour les dépôts et installez Elasticsearch :
 
 ```bash
-sudo apt update
-sudo apt install -y elasticsearch
+sudo apt-get update && sudo apt-get install elasticsearch
 ```
 
 #### Étape 5 : Configuration d'Elasticsearch pour 1 Go de RAM
