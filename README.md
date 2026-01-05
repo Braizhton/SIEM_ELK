@@ -190,12 +190,12 @@ sudo nano /etc/elasticsearch/jvm.options.d/heapsizemem.conf
 
 Insérez les lignes suivantes :
 ```
-# Après (optimisé pour 2 Go RAM)
+#(optimisé pour 2 Go RAM)
 -Xms1G
 -Xmx1G
 ```
 
-**Explication** : Nous limitons le heap à 256 Mo pour laisser de la mémoire au système et aux autres services.
+**Explication** : Nous limitons le heap à 1 Go pour laisser de la mémoire au système et aux autres services.
 
 #### Étape 6 : Configuration réseau d'Elasticsearch
 
