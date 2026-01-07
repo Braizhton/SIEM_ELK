@@ -168,7 +168,8 @@ sudo apt install -y apt-transport-https
 Ajoutez le dépôt Elastic (nous utiliserons la version 9.x) :
 
 ```bash
-echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-9.x.list```
+echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-9.x.list
+```
 
 #### Étape 4 : Mise à jour et installation
 
