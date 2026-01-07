@@ -546,7 +546,7 @@ echo "Deuxième message" >> /tmp/logstash-test.log
 
 Résultat attendu :
 
-* Les logs apparaissent dans Elasticsearch
+* Les logs apparaissent dans Elasticsearch (Allez dans **elasticsearch  →  index_management**
 * L’index `test-logs-YYYY.MM.dd` est créé
 * Logstash **reste actif**
 
