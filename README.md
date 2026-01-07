@@ -421,16 +421,20 @@ Vérifiez l'installation :
 ```bash
 java -version
 ```
+---
 
 #### Étape 2 : Installation de Logstash
 
 Installez Logstash :
 
 ```bash
+sudo apt update
 sudo apt install -y logstash
 ```
 
-#### Étape 3 : Configuration de base
+---
+
+#### Étape 3 : Configuration de base de Logstash
 
 Éditez le fichier de configuration principal :
 
@@ -438,7 +442,7 @@ sudo apt install -y logstash
 sudo nano /etc/logstash/logstash.yml
 ```
 
-Configurez les paramètres de base :
+Vérifiez / configurez les paramètres suivants :
 
 ```yaml
 # Chemin des pipelines
@@ -446,25 +450,46 @@ path.config: /etc/logstash/conf.d
 
 # Chemin des logs
 path.logs: /var/log/logstash
+
+# Chemin des données internes (important pour éviter les erreurs)
+path.data: /var/lib/logstash
 ```
 
-#### Étape 4 : Création d'un pipeline de test
+Créez et corrigez les permissions nécessaires (évite 90 % des erreurs) :
 
-Créez un pipeline simple pour tester Logstash :
+```bash
+sudo mkdir -p /var/log/logstash /var/lib/logstash
+sudo chown -R logstash:logstash /var/log/logstash /var/lib/logstash
+```
+
+---
+
+#### Étape 4 : Création d’un pipeline de test (mode service compatible)
+
+**Important** :
+Le pipeline `stdin {}` **ne doit pas être utilisé avec systemd**, car il provoque l’arrêt immédiat de Logstash.
+On utilise donc un **input file** pour un vrai test.
+
+Créez le pipeline de test :
 
 ```bash
 sudo nano /etc/logstash/conf.d/test.conf
 ```
 
-Ajoutez la configuration suivante :
+Configuration **corrigée et stable** :
 
 ```ruby
 input {
-  stdin {}
+  file {
+    path => "/tmp/logstash-test.log"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+    mode => "tail"
+  }
 }
 
 filter {
-  # Pas de filtre pour le test
+  # Aucun filtre pour le test
 }
 
 output {
@@ -478,13 +503,22 @@ output {
 }
 ```
 
-#### Étape 5 : Démarrage de Logstash
-
-Démarrez Logstash :
+Créez le fichier de test :
 
 ```bash
-sudo systemctl start logstash
+sudo touch /tmp/logstash-test.log
+sudo chmod 666 /tmp/logstash-test.log
+```
+
+---
+
+#### Étape 5 : Démarrage de Logstash (méthode recommandée)
+
+Démarrez Logstash comme service :
+
+```bash
 sudo systemctl enable logstash
+sudo systemctl restart logstash
 ```
 
 Vérifiez le statut :
@@ -493,36 +527,155 @@ Vérifiez le statut :
 sudo systemctl status logstash
 ```
 
-#### Étape 6 : Test du pipeline
+Vous devez voir :
 
-Testez le pipeline (cela démarre Logstash en mode interactif) :
-
-```bash
-sudo /usr/share/logstash/bin/logstash -f /etc/logstash/conf.d/test.conf
+```
+Active: active (running)
 ```
 
-Tapez quelques lignes de texte et appuyez sur Entrée. Vous devriez voir les données dans Elasticsearch.
+---
 
-Appuyez sur `Ctrl+C` pour arrêter.
+#### Étape 6 : Test du pipeline
 
-#### Pipeline pour logs Apache
+Dans un autre terminal, écrivez dans le fichier de test :
 
-**Objectif** : Créer un pipeline Logstash qui parse les logs Apache.
+```bash
+echo "Bonjour Logstash" >> /tmp/logstash-test.log
+echo "Deuxième message" >> /tmp/logstash-test.log
+```
 
-**Tâche** :
-1. Installez Apache si nécessaire : `sudo apt install -y apache2`
-2. Créez un nouveau fichier de configuration : `sudo nano /etc/logstash/conf.d/apache.conf`
-3. Configurez le pipeline pour :
-   - Lire les logs Apache depuis `/var/log/apache2/access.log`
-   - Parser le format de log Apache (utilisez le filtre `grok`)
-   - Envoyer vers Elasticsearch avec l'index `apache-logs-%{+YYYY.MM.dd}`
-4. Redémarrez Logstash : `sudo systemctl restart logstash`
-5. Générez du trafic vers Apache : `curl http://localhost` (plusieurs fois)
-6. Vérifiez dans Kibana que les logs apparaissent
+Résultat attendu :
 
-**Indice** : Utilisez le pattern Grok pour les logs Apache : `%{COMBINEDAPACHELOG}`
+* Les logs apparaissent dans Elasticsearch
+* L’index `test-logs-YYYY.MM.dd` est créé
+* Logstash **reste actif**
 
-**Ressource** : Documentation [Grok](https://www.elastic.co/guide/en/logstash/current/plugins-filters-grok.html)
+---
+
+#### Pipeline pour les logs Apache
+
+**Objectif**
+
+Créer un pipeline Logstash qui lit et parse les logs Apache.
+
+---
+
+##### Étape 1 : Installation d’Apache
+
+```bash
+sudo apt install -y apache2
+```
+
+Vérifiez qu’Apache fonctionne :
+
+```bash
+curl http://localhost
+```
+
+---
+
+##### Étape 2 : Création du pipeline Apache
+
+Créez le fichier :
+
+```bash
+sudo nano /etc/logstash/conf.d/apache.conf
+```
+
+Configuration :
+
+```ruby
+input {
+  file {
+    path => "/var/log/apache2/access.log"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+    mode => "tail"
+  }
+}
+
+filter {
+  grok {
+    match => { "message" => "%{COMBINEDAPACHELOG}" }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://localhost:9200"]
+    index => "apache-logs-%{+YYYY.MM.dd}"
+  }
+  stdout {
+    codec => rubydebug
+  }
+}
+```
+
+**Important** :
+Supprimez ou commentez `test.conf` pour éviter plusieurs pipelines non nécessaires :
+
+```bash
+sudo mv /etc/logstash/conf.d/test.conf /etc/logstash/conf.d/test.conf.disabled
+```
+
+---
+
+##### Étape 3 : Redémarrage de Logstash
+
+```bash
+sudo systemctl restart logstash
+```
+
+Vérification :
+
+```bash
+journalctl -u logstash -n 20 --no-pager
+```
+
+Vous devez voir :
+
+* `Pipeline started`
+* aucune erreur fatale
+
+---
+
+##### Étape 4 : Génération de trafic Apache
+
+```bash
+curl http://localhost
+curl http://localhost
+curl http://localhost
+```
+
+---
+
+##### Étape 5 : Vérification dans Kibana
+
+1. Aller dans **Stack Management → Data Views**
+2. Créer un data view :
+
+   ```
+   apache-logs-*
+   ```
+3. Champ temporel : `@timestamp`
+4. Aller dans **Discover**
+
+Résultat attendu :
+
+* Requêtes Apache visibles
+* Champs parsés (`clientip`, `verb`, `request`, `response`, etc.)
+
+---
+
+**Indice**
+
+Pattern Grok utilisé :
+
+```
+%{COMBINEDAPACHELOG}
+```
+
+Documentation officielle : [grok](https://www.elastic.co/guide/en/logstash/current/plugins-filters-grok.html)
 
 ---
 
