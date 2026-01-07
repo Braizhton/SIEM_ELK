@@ -476,7 +476,7 @@ Créez le pipeline de test :
 sudo nano /etc/logstash/conf.d/test.conf
 ```
 
-Configuration **corrigée et stable** :
+Configuration :
 
 ```ruby
 input {
@@ -512,7 +512,7 @@ sudo chmod 666 /tmp/logstash-test.log
 
 ---
 
-#### Étape 5 : Démarrage de Logstash (méthode recommandée)
+#### Étape 5 : Démarrage de Logstash
 
 Démarrez Logstash comme service :
 
@@ -616,6 +616,11 @@ Supprimez ou commentez `test.conf` pour éviter plusieurs pipelines non nécessa
 
 ```bash
 sudo mv /etc/logstash/conf.d/test.conf /etc/logstash/conf.d/test.conf.disabled
+```
+
+Autoriser logstash à lire le fichier de log Apache :
+```bash
+sudo usermod -aG adm logstash
 ```
 
 ---
