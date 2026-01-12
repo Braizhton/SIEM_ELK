@@ -758,8 +758,8 @@ sudo systemctl status filebeat
 #### Étape 6 : Vérification dans Kibana
 
 1. Accédez à Kibana : `http://IP_VM:5601`
-2. Allez dans **Stack Management** > **Index Patterns**
-3. Créez un index pattern : `filebeat-*`
+2. Allez dans **Stack Management → Data Views**
+3. Créez une data view : `filebeat-*`
 4. Sélectionnez le champ timestamp : `@timestamp`
 5. Explorez les données dans **Discover**
 
@@ -865,7 +865,7 @@ Get-Service winlogbeat
 #### Étape 6 : Vérification dans Kibana
 
 1. Attendez quelques minutes pour que les événements soient collectés
-2. Dans Kibana, créez un index pattern : `winlogbeat-*`
+2. Dans Kibana, créez une data view : `winlogbeat-*`
 3. Explorez les événements Windows dans **Discover**
 
 **Vérification** : Vous devriez voir les événements Windows (Application, System, Security) dans Kibana.
@@ -979,7 +979,7 @@ sudo systemctl status metricbeat
 #### Étape 6 : Vérification dans Kibana
 
 1. Attendez quelques minutes
-2. Dans Kibana, créez un index pattern : `metricbeat-*`
+2. Dans Kibana, créez une data view : `metricbeat-*`
 3. Explorez les métriques dans **Discover**
 4. Allez dans **Stack Monitoring** pour voir les dashboards prédéfinis
 
@@ -1040,7 +1040,7 @@ sudo systemctl enable packetbeat
 
 #### Étape 4 : Vérification
 
-Vérifiez dans Kibana avec l'index pattern `packetbeat-*`.
+Vérifiez dans Kibana avec la data view `packetbeat-*`.
 
 **Note** : Packetbeat peut être gourmand en ressources. Sur une VM avec 2 Go de RAM, utilisez-le avec précaution.
 
@@ -1048,21 +1048,21 @@ Vérifiez dans Kibana avec l'index pattern `packetbeat-*`.
 
 ## 4. Partie 3 : Visualisation et analyse dans Kibana
 
-### 4.1 Création d'index patterns
+### 4.1 Création de data views
 
-#### Étape 1 : Accès aux index patterns
+#### Étape 1 : Accès aux data views
 
-1. Dans Kibana, allez dans **Stack Management** > **Index Patterns**
-2. Cliquez sur **Create index pattern**
+1. Dans Kibana, allez dans **Stack Management → Data Views**
+2. Cliquez sur **Create data view*
 
-#### Étape 2 : Création d'un index pattern pour Filebeat
+#### Étape 2 : Création d'une data view pour Filebeat
 
 1. Entrez le pattern : `filebeat-*`
 2. Cliquez sur **Next step**
 3. Sélectionnez le champ timestamp : `@timestamp`
-4. Cliquez sur **Create index pattern**
+4. Cliquez sur **Create data view**
 
-#### Étape 3 : Création d'autres index patterns
+#### Étape 3 : Création d'autres data views
 
 Répétez pour :
 - `winlogbeat-*`
@@ -1073,9 +1073,9 @@ Répétez pour :
 
 #### Visualisation 1 : Graphique temporel des logs
 
-1. Allez dans **Visualize** > **Create visualization**
+1. Allez dans **Dashboard** > **Create visualization**
 2. Choisissez **Line** (graphique linéaire)
-3. Sélectionnez l'index pattern `filebeat-*`
+3. Sélectionnez la data view `filebeat-*`
 4. Configurez :
    - **Y-axis** : Count
    - **X-axis** : Date Histogram sur `@timestamp`
@@ -1122,7 +1122,7 @@ Sauvegardez le dashboard : "Dashboard SIEM Principal"
 #### Recherche simple
 
 1. Allez dans **Discover**
-2. Sélectionnez l'index pattern `filebeat-*`
+2. Sélectionnez la data view `filebeat-*`
 3. Utilisez la barre de recherche pour filtrer :
    - `status:error` (logs d'erreur)
    - `message:*failed*` (messages contenant "failed")
