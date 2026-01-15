@@ -383,7 +383,7 @@ Edit the node.option file
 
 Uncomment --max-old-space-size=4096
 
-And change it to --max-old-space-size=128
+And change it to --max-old-space-size=256
 
 
 #### Step 3: Start Kibana
