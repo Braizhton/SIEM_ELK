@@ -458,7 +458,21 @@ Créez et corrigez les permissions nécessaires (évite 90 % des erreurs) :
 sudo mkdir -p /var/log/logstash /var/lib/logstash
 sudo chown -R logstash:logstash /var/log/logstash /var/lib/logstash
 ```
+**IMPORTANT** : Avec 4 Go de RAM, nous devons limiter la mémoire heap de logstash pour laisser de la mémoire aux autres services.
 
+Modifiez le fichier de configuration de la mémoire heap pour la JVM :
+
+```bash
+sudo nano /etc/logstash/jvm.options
+```
+
+Modifiez les lignes suivantes :
+
+```properties
+# Optimisé pour 4 Go RAM (heap limité à 256 Mo)
+-Xms256m
+-Xmx256m
+```
 ---
 
 #### Étape 4 : Création d’un pipeline de test (mode service compatible)
