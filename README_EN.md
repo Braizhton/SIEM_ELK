@@ -1,4 +1,4 @@
-## 📄 TP: Implementing a SIEM Solution with the ELK Stack
+## TP: Implementing a SIEM Solution with the ELK Stack
 
 **UE S10-3 - Information Security and Event Management** **Practical Work - Individual Assignment**
 
@@ -378,6 +378,7 @@ server.port: 5601
 
 # Elasticsearch URL
 elasticsearch.hosts: ["http://localhost:9200"]
+node.options: "--max-old-space-size=128"
 
 ```
 
