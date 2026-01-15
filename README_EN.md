@@ -380,7 +380,9 @@ server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
 ```
 Edit the node.option file
+
 Uncomment --max-old-space-size=4096
+
 And change it to --max-old-space-size=128
 
 
